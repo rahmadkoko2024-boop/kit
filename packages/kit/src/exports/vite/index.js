@@ -22,7 +22,7 @@ import {
 import * as sync from '../../core/sync/sync.js';
 import { create_assets } from '../../core/sync/create_manifest_data/index.js';
 import { runtime_directory, logger } from '../../core/utils.js';
-import { load_svelte_config, process_config } from '../../core/config/index.js';
+import { load_svelte_config, process_config, split_config } from '../../core/config/index.js';
 import { generate_manifest } from '../../core/generate_manifest/index.js';
 import { build_server_nodes } from './build/build_server.js';
 import { build_service_worker } from './build/build_service_worker.js';
@@ -143,19 +143,27 @@ const warning_preprocessor = {
 /**
  * Returns the SvelteKit Vite plugins.
  * Since version 2.62.0 you can pass [configuration](configuration) directly, in which case `svelte.config.js` is ignored.
- * @param {KitConfig & Omit<SvelteConfig, 'onwarn'>} [config]
+ * Any options that don't belong to SvelteKit are passed through to `vite-plugin-svelte`.
+ * @param {KitConfig & Omit<Options, 'onwarn'> & Pick<SvelteConfig, 'vitePlugin'>} [config]
  * @returns {Promise<Plugin[]>}
  */
 export async function sveltekit(config) {
 	/** @type {ValidatedConfig} */
 	let svelte_config;
 
+	// any options passed to the plugin that SvelteKit doesn't use itself are
+	// forwarded to vite-plugin-svelte, which does its own validation
+	/** @type {Record<string, any>} */
+	let vite_plugin_svelte_config = {};
+
 	if (config !== undefined) {
-		const { extensions, compilerOptions, vitePlugin, preprocess, ...kit } = config;
-		svelte_config = process_config(
-			{ extensions, compilerOptions, vitePlugin, preprocess, kit },
-			{ cwd, source: 'SvelteKit options from Vite config' }
-		);
+		const split = split_config(config);
+		vite_plugin_svelte_config = split.vite_plugin_svelte_config;
+
+		svelte_config = process_config(split.svelte_config, {
+			cwd,
+			source: 'SvelteKit options from Vite config'
+		});
 
 		const config_file = ['svelte.config.js', 'svelte.config.ts'].find((file) =>
 			fs.existsSync(file)
@@ -180,6 +188,9 @@ export async function sveltekit(config) {
 
 	/** @type {Options} */
 	const vite_plugin_svelte_options = {
+		// pass through any options that SvelteKit doesn't use itself first, so
+		// that the options SvelteKit manages below always take precedence
+		...vite_plugin_svelte_config,
 		configFile: false,
 		extensions: svelte_config.extensions,
 		preprocess,
@@ -293,8 +304,11 @@ async function kit({ svelte_config }) {
 				const allow = new Set([
 					kit.files.lib,
 					kit.files.routes,
+					kit.files.src,
 					kit.outDir,
-					path.resolve('src'), // TODO this isn't correct if user changed all his files to sth else than src (like in test/options)
+					// ensures that the client entry is served even if it's located outside
+					// the local node_modules, such as the pnpm global virtual store
+					runtime_directory,
 					path.resolve('node_modules'),
 					path.resolve(vite.searchForWorkspaceRoot(cwd), 'node_modules')
 				]);
@@ -958,6 +972,7 @@ async function kit({ svelte_config }) {
 					if (ssr) {
 						input.index = `${runtime_directory}/server/index.js`;
 						input.internal = `${out_dir}/generated/server/internal.js`;
+						input.env = `__sveltekit/env`;
 						input['remote-entry'] = `${runtime_directory}/app/server/remote/index.js`;
 
 						// add entry points for every endpoint...
@@ -1375,6 +1390,17 @@ async function kit({ svelte_config }) {
 					const deps_of = (entry, add_dynamic_css = false) =>
 						find_deps(manifest, posixify(path.relative('.', entry)), add_dynamic_css);
 
+					const has_explicit_dynamic_public_env = Object.values(explicit_env_config ?? {}).some(
+						(variable) => variable.public && !variable.static
+					);
+
+					const uses_env_dynamic_public = client_chunks.some(
+						(chunk) =>
+							chunk.type === 'chunk' &&
+							(chunk.modules[env_dynamic_public] ||
+								(has_explicit_dynamic_public_env && chunk.modules[sveltekit_env_public_client]))
+					);
+
 					if (svelte_config.kit.output.bundleStrategy === 'split') {
 						const start = deps_of(`${runtime_directory}/client/entry.js`);
 						const app = deps_of(`${out_dir}/generated/client-optimized/app.js`);
@@ -1385,9 +1411,7 @@ async function kit({ svelte_config }) {
 							imports: [...start.imports, ...app.imports],
 							stylesheets: [...start.stylesheets, ...app.stylesheets],
 							fonts: [...start.fonts, ...app.fonts],
-							uses_env_dynamic_public: client_chunks.some(
-								(chunk) => chunk.type === 'chunk' && chunk.modules[env_dynamic_public]
-							)
+							uses_env_dynamic_public
 						};
 
 						// In case of server-side route resolution, we create a purpose-built route manifest that is
@@ -1434,9 +1458,7 @@ async function kit({ svelte_config }) {
 							imports: start.imports,
 							stylesheets: start.stylesheets,
 							fonts: start.fonts,
-							uses_env_dynamic_public: client_chunks.some(
-								(chunk) => chunk.type === 'chunk' && chunk.modules[env_dynamic_public]
-							)
+							uses_env_dynamic_public
 						};
 
 						if (svelte_config.kit.output.bundleStrategy === 'inline') {
@@ -1633,13 +1655,18 @@ function find_overridden_config(config, resolved_config, enforced_config, path, 
 	for (const key in enforced_config) {
 		if (typeof config === 'object' && key in config && key in resolved_config) {
 			const enforced = enforced_config[key];
+			const resolved = resolved_config[key];
 
 			if (enforced === true) {
-				if (config[key] !== resolved_config[key]) {
+				// Normalize path separators before comparing to avoid false positives on Windows,
+				// where config values like `root` may use backslashes while SvelteKit uses forward slashes.
+				const a = typeof config[key] === 'string' ? posixify(config[key]) : config[key];
+				const b = typeof resolved === 'string' ? posixify(resolved) : resolved;
+				if (a !== b) {
 					out.push(path + key);
 				}
 			} else {
-				find_overridden_config(config[key], resolved_config[key], enforced, path + key + '.', out);
+				find_overridden_config(config[key], resolved, enforced, path + key + '.', out);
 			}
 		}
 	}
@@ -1654,6 +1681,7 @@ const create_service_worker_module = (config) => dedent`
 		throw new Error('This module can only be imported inside a service worker');
 	}
 
+	export const base = location.pathname.split('/').slice(0, -1).join('/');
 	export const build = [];
 	export const files = [
 		${create_assets(config)
