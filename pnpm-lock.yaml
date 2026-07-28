@@ -109,8 +109,8 @@ catalogs:
       specifier: ^6.0.2
       version: 6.0.2
     valibot:
-      specifier: ^1.1.0
-      version: 1.2.0
+      specifier: ^1.4.2
+      version: 1.4.2
     vite:
       specifier: ^6.4.3
       version: 6.4.3
@@ -664,7 +664,7 @@ importers:
         version: 6.0.2
       valibot:
         specifier: 'catalog:'
-        version: 1.2.0(typescript@6.0.2)
+        version: 1.4.2(typescript@6.0.2)
       vite:
         specifier: 'catalog:'
         version: 6.4.3(@types/node@18.19.130)(jiti@2.4.2)(lightningcss@1.30.1)(yaml@2.8.3)
@@ -703,7 +703,7 @@ importers:
         version: 6.0.2
       valibot:
         specifier: 'catalog:'
-        version: 1.2.0(typescript@6.0.2)
+        version: 1.4.2(typescript@6.0.2)
       vite:
         specifier: 'catalog:'
         version: 6.4.3(@types/node@18.19.130)(jiti@2.4.2)(lightningcss@1.30.1)(yaml@2.8.3)
@@ -874,7 +874,7 @@ importers:
         version: 6.0.2
       valibot:
         specifier: 'catalog:'
-        version: 1.2.0(typescript@6.0.2)
+        version: 1.4.2(typescript@6.0.2)
       vite:
         specifier: 'catalog:'
         version: 6.4.3(@types/node@18.19.130)(jiti@2.4.2)(lightningcss@1.30.1)(yaml@2.8.3)
@@ -1478,7 +1478,7 @@ importers:
         version: 6.0.2
       valibot:
         specifier: 'catalog:'
-        version: 1.2.0(typescript@6.0.2)
+        version: 1.4.2(typescript@6.0.2)
       vite:
         specifier: 'catalog:'
         version: 6.4.3(@types/node@18.19.130)(jiti@2.4.2)(lightningcss@1.30.1)(yaml@2.8.3)
@@ -6026,8 +6026,8 @@ packages:
   v8-compile-cache-lib@3.0.1:
     resolution: {integrity: sha512-wa7YjyUGfNZngI/vtK0UHAN+lgDCxBPCylVXGp0zu59Fz5aiGtNXaq3DhIov063MorB+VfufLh3JlF2KdTK3xg==}
 
-  valibot@1.2.0:
-    resolution: {integrity: sha512-mm1rxUsmOxzrwnX5arGS+U4T25RdvpPjPN4yR0u9pUBov9+zGVtO84tif1eY4r6zWxVxu3KzIyknJy3rxfRZZg==}
+  valibot@1.4.2:
+    resolution: {integrity: sha512-gjdCvJ6d3RyHAneqxMYMW9QMCwYMb3jpOO0IyHZV1bnRHFBHrX3VkIILt5XYR0WhwHiH7Mty8ovuPZ/O3gamrg==}
     peerDependencies:
       typescript: '>=5'
     peerDependenciesMeta:
@@ -10808,7 +10808,7 @@ snapshots:
   v8-compile-cache-lib@3.0.1:
     optional: true
 
-  valibot@1.2.0(typescript@6.0.2):
+  valibot@1.4.2(typescript@6.0.2):
     optionalDependencies:
       typescript: 6.0.2
 
