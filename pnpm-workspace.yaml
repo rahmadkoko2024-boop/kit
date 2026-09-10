@@ -78,7 +78,7 @@ catalog:
 
   # unit test deps that should be upgraded together
   '@vitest/browser-playwright': ^4.1.7
-  vitest: ^4.1.7
+  vitest: ^4.1.11
   jsdom: ^26.1.0
 catalogs:
   vite-baseline:
